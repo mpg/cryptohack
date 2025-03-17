@@ -57,11 +57,40 @@ def euclid_intuitive(a, b, show=False):
     return g, u, v
 
 
+# This is "normal" version the extended Euclidean algorithm.
+# Same structure as euclid_gcd() from gcd.py.
+def euclid_direct(a, b):
+    assert a >= 0 and b >= 0
+
+    # Ensure a >= b
+    if b > a:
+        g, u, v = euclid_direct(b, a)
+        return g, v, u
+
+    # Invariants:
+    # GCD(ai, bi) = GCD(a, b)
+    # ai = a * u + b * v
+    # bi = a * s + b * t
+    ai, u, v = a, 1, 0
+    bi, s, t = b, 0, 1
+    while bi != 0:
+        q, r = divmod(ai, bi)
+        # r = ai - q * bi
+        #   = (a*u + b*v) - q * (a*s + b*t)
+        #   = a * (u - q*s) + b * (v - q*t)
+        rs, rt = u - q * s, v - q * t
+        # The basic alg does a, b = b, r; extend that with coefficients
+        ai, u, v = bi, s, t
+        bi, s, t = r, rs, rt
+
+    return ai, u, v
+
+
 def test_one(func, name, a, b):
     exp = math.gcd(a, b)
     got, u, v = func(a, b)
     assert got == exp, f"{name}({a}, {b}) = {got} != {exp}"
-    assert a * u + b * v == got, f"{a} * {u} + {b} * {v} != {got}"
+    assert a * u + b * v == got, f"{a} * {u} + {b} * {v} != {got} ({name})"
 
 
 def test(func, name):
@@ -76,6 +105,7 @@ def test(func, name):
 
 
 test(euclid_intuitive, "euclid_intuitive")
+test(euclid_direct, "euclid_direct")
 
 g, u, v = euclid_intuitive(26513, 32321, show=True)
 assert g == 1
