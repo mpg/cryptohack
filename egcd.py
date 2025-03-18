@@ -1,6 +1,9 @@
 import math
 import secrets
 
+# Extended GCD algs: in addition to the GCD, compute Bézout coefficients.
+# https://en.wikipedia.org/wiki/B%C3%A9zout%27s_identity
+
 
 # This is the way I do the extended Euclidean algorithm by hand:
 # compute the GCD the normal way, then "climb back" the ladder of divisions.
@@ -98,13 +101,15 @@ def binary(a, b):
         return a, 1, 1
 
     # Take out the factors 2 common to a and b
-    # This does not change the Bézout coefficients
+    # These do not change the Bézout coefficients, only the GCD
     g = 1
     while a & 1 == 0 and b & 1 == 0:
         a >>= 1
         b >>= 1
         g <<= 1
 
+    # Take out the remaining factors 2 in a or b
+    # These don't contribute to the GCD but change the Bézout coefficients
     # Invariants:
     # GCD(ai, bi) = GCD(a, b)
     # ai = a * u + b * v
@@ -112,6 +117,34 @@ def binary(a, b):
     # (where a and b are what's left from the previous step)
     ai, u, v = a, 1, 0
     bi, s, t = b, 0, 1
+    # Make sure the possibly-even one is ai
+    if ai & 1 != 0:
+        ai, u, v, bi, s, t = bi, s, t, ai, u, v
+    while ai & 1 == 0:
+        # We want to divide ai by 2,
+        # but in order to preserve ai = a * u + b * v,
+        # how should we update u and v?
+        #
+        # If they're both even, then we can just divide by 2.
+        #
+        # Otherwise, since ai = a*u + b*v is even, it can be either
+        # - odd + odd, and then a, u, b, v are all odd
+        # - even + even, but since one of a, b is odd and also one of u, v,
+        #   the two possibilities are:
+        #   - a odd, u even, b even, v odd
+        #   - a even, u odd, b odd, v even
+        # In all three of those unfavourable cases,
+        # we can get back to the nice case by adding
+        # 0  = a * b + b * (-a) to
+        # ai = a * u + b * v
+        if u & 1 != 0 or v & 1 != 0:
+            u, v = u + b, v - a
+
+        ai, u, v = ai >> 1, u >> 1, v >> 1
+
+    # Compute the non-power-of-two part of the GCD
+    # Invariants: same as above, plus ai and bi both odd
+    # (this ensures bitlen(max(a, b)) decreases at each iteration).
     while ai != bi:
         if bi > ai:
             ai, u, v, bi, s, t = bi, s, t, ai, u, v
@@ -119,22 +152,7 @@ def binary(a, b):
         ai, u, v = ai - bi, u - s, v - t
 
         while ai & 1 == 0:
-            # We want to divide ai by 2,
-            # but in order to preserve ai = a * u + b * v,
-            # how should we update u and v?
-            #
-            # If they're both even, then we can just divide by 2.
-            #
-            # Otherwise, since ai = a*u + b*v is even, it can be either
-            # - odd + odd, and then a, u, b, v are all odd
-            # - even + even, but since one of a, b is odd and also one of u, v,
-            #   the two possibilities are:
-            #   - a odd, u even, b even, v odd
-            #   - a even, u odd, b odd, v even
-            # In all three of those unfavourable cases,
-            # we can get back to the nice case by adding
-            # 0  = a * b + b * (-a) to
-            # ai = a * u + b * v
+            # Same as above
             if u & 1 != 0 or v & 1 != 0:
                 u, v = u + b, v - a
 

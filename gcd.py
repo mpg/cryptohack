@@ -7,7 +7,7 @@ import secrets
 # 3. gcd(a, b) = gcd(b, a)
 # 4. gcd(a, b) = gcd(a, b - a)
 #       if d divides a and b, it also divides b - a
-#       if d divides a and b - a, it also divdes a + (b-a) = b
+#       if d divides a and b - a, it also divides a + (b-a) = b
 # 5. gcd(a, b) = gcd(a, b - n*a) for any integer n
 #       iterated version of the above
 # 6. gcd(a, b) = gcd(a, b % a)
@@ -16,6 +16,11 @@ import secrets
 #       factor 2 in common
 # 8. gcd(a, b) = gcd(a, b / 2) if a odd and b even
 #       the factors 2 in b can't contribute to the GCD since a is odd
+#
+# For the last two, it is useful to remember that if
+# a = 2^e2 * 3^e3 * 5^e5 * 7^e7 * 11^e11 * ...
+# b = 2^f2 * 3^f3 * 5^f5 * 7^f7 * 11^f11 * ...
+# then GCD(a, b) = 2^g2 * 3^g3 * 5^g5 * ... where g_p = min(e_p, f_p).
 
 
 # https://en.wikipedia.org/wiki/Euclidean_algorithm
@@ -25,8 +30,10 @@ def euclid_gcd(a, b):
     if b > a:
         a, b = b, a
 
-    # Invariant: a_i >= b_i and gcd(a_i, b_i) = gcd(a_{i-1}, b_{i-1})
-    # Variant: a_i < a_{i-1}
+    # Invariants:
+    # gcd(a_i, b_i) = gcd(a_{i-1}, b_{i-1})
+    # a_i, b_i non-negative
+    # Variant: b_i < b_{i-1}
     # (It can be proven that the number of steps is O(bitlen(b)) though.)
     while b != 0:
         a, b = b, a % b
@@ -51,10 +58,18 @@ def binary_gcd(a, b):
         b >>= 1
         g <<= 1
 
+    # Take out the remaining factors 2 in a and b
+    # These no longer contribute to the GCD since the other is odd
+    while a & 1 == 0:
+        a >>= 1
+    while b & 1 == 0:
+        b >>= 1
+
     # Invariants:
     # gcd(a_i, b_i) = gcd(a_{i-1}, b_{i-1})
-    # a_i and b_i both odd (except possibly first iteration)
-    # Variant: bitlen(a) decreasing (except possibly first iteration)
+    # a and b both odd and non-negative
+    # Variant: bitlen(max(a, b)) decreasing at each iteration
+    # (a and b are both odd, so a - b is even and there's at least one shift)
     while a != b:
         if b > a:
             a, b = b, a
