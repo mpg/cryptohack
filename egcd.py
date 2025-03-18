@@ -57,7 +57,7 @@ def euclid_intuitive(a, b, show=False):
     return g, u, v
 
 
-# This is "normal" version the extended Euclidean algorithm.
+# This is the "normal" version the extended Euclidean algorithm.
 # Same structure as euclid_gcd() from gcd.py.
 def euclid_direct(a, b):
     assert a >= 0 and b >= 0
@@ -86,6 +86,63 @@ def euclid_direct(a, b):
     return ai, u, v
 
 
+# This is a version of the extended binary GCD algorithm.
+# Same structure as binary_gcd() from gcd.py.
+def binary(a, b):
+    assert a >= 0 and b >= 0
+
+    # Avoid special cases
+    if a == 0:
+        return b, 1, 1
+    if b == 0:
+        return a, 1, 1
+
+    # Take out the factors 2 common to a and b
+    # This does not change the Bézout coefficients
+    g = 1
+    while a & 1 == 0 and b & 1 == 0:
+        a >>= 1
+        b >>= 1
+        g <<= 1
+
+    # Invariants:
+    # GCD(ai, bi) = GCD(a, b)
+    # ai = a * u + b * v
+    # bi = a * s + b * t
+    # (where a and b are what's left from the previous step)
+    ai, u, v = a, 1, 0
+    bi, s, t = b, 0, 1
+    while ai != bi:
+        if bi > ai:
+            ai, u, v, bi, s, t = bi, s, t, ai, u, v
+
+        ai, u, v = ai - bi, u - s, v - t
+
+        while ai & 1 == 0:
+            # We want to divide ai by 2,
+            # but in order to preserve ai = a * u + b * v,
+            # how should we update u and v?
+            #
+            # If they're both even, then we can just divide by 2.
+            #
+            # Otherwise, since ai = a*u + b*v is even, it can be either
+            # - odd + odd, and then a, u, b, v are all odd
+            # - even + even, but since one of a, b is odd and also one of u, v,
+            #   the two possibilities are:
+            #   - a odd, u even, b even, v odd
+            #   - a even, u odd, b odd, v even
+            # In all three of those unfavourable cases,
+            # we can get back to the nice case by adding
+            # 0  = a * b + b * (-a) to
+            # ai = a * u + b * v
+            if u & 1 != 0 or v & 1 != 0:
+                u, v = u + b, v - a
+
+            ai, u, v = ai >> 1, u >> 1, v >> 1
+
+    return g * ai, u, v
+
+
 def test_one(func, name, a, b):
     exp = math.gcd(a, b)
     got, u, v = func(a, b)
@@ -106,6 +163,7 @@ def test(func, name):
 
 test(euclid_intuitive, "euclid_intuitive")
 test(euclid_direct, "euclid_direct")
+test(binary, "binary")
 
 g, u, v = euclid_intuitive(26513, 32321, show=True)
 assert g == 1

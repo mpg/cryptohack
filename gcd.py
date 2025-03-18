@@ -38,24 +38,23 @@ def euclid_gcd(a, b):
 def binary_gcd(a, b):
     assert a >= 0 and b >= 0
 
-    if b > a:
-        a, b = b, a
+    # Avoid special cases
+    if a == 0:
+        return b
     if b == 0:
         return a
 
-    # Take the factors 2 in a and b
-    i = 0
-    while a & 1 == 0:
+    # Take out the factors 2 common to a and b
+    g = 1
+    while a & 1 == 0 and b & 1 == 0:
         a >>= 1
-        i += 1
-    j = 0
-    while b & 1 == 0:
         b >>= 1
-        j += 1
-    g = 1 << min(i, j)
+        g <<= 1
 
-    # Invariant: a_i and b_i both odd, and gcd(a_i, b_i) = gcd(a_{i-1}, b_{i-1})
-    # Variant: bitlen(a) decreasing
+    # Invariants:
+    # gcd(a_i, b_i) = gcd(a_{i-1}, b_{i-1})
+    # a_i and b_i both odd (except possibly first iteration)
+    # Variant: bitlen(a) decreasing (except possibly first iteration)
     while a != b:
         if b > a:
             a, b = b, a
