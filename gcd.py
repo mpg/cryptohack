@@ -103,17 +103,99 @@ def si_gcd(a, b):
 
     u, v = b, a
     for _ in range(2 * a.bit_length()):
-        print(v, u)
-        t1 = v - u
+        # Use d for what the paper calls t1,
+        # because t1 will be used for something else in Alg 8.
+        d = v - u
         if u & 1 == 0:
             u >>= 1
-            v, u = max_min(u, t1)
+            v, u = max_min(u, d)
         elif v & 1 != 0:
-            t1 >>= 1
-            v, u = max_min(t1, u)
+            d >>= 1
+            v, u = max_min(d, u)
         else:
             v >>= 1
-            v, u = max_min(v, t1)
+            v, u = max_min(v, d)
+
+    return v
+
+
+# [Jin23] "SICT-GCD can be easily obtained by removing
+# the computations of q and r from Algorithm 8."
+def sict_gcd(p, a):
+    assert p >= a >= 0
+    assert p & 1 != 0 or a & 1 != 0
+
+    u, v = a, p
+    for _ in range(2 * p.bit_length()):
+        s, z = u & 1, v & 1
+        t1 = (s ^ z) * v + (2 * s * z - 1) * u
+        t2 = (s * v + (2 - 2 * s - z) * u) >> 1
+
+        # In real life, use constant-time conditional assign/swap
+        if t2 >= t1:
+            u, v = t1, t2
+        else:
+            u, v = t2, t1
+
+    return v
+
+
+# return a if !cond; b if cond
+#
+# Usage: a = select(a, b, cond) to emulate a conditional assign
+# (as implemented by mbedtls_mpi_core_cond_assign()).
+def select(a, b, cond):
+    if cond:
+        return b
+    return a
+
+
+# return a, b if !cond; b, a if cond
+#
+# See mbedtls_mpi_core_cond_swap()
+def cond_swap(a, b, cond):
+    if cond:
+        return b, a
+    return a, b
+
+
+# The computation of t1 and t2 in the above has drawabacks:
+# 1. Not exactly readable.
+# 2. Involves signed numbers (eg in t1 if sz is 0 we add -u).
+# Constant time addition is costly (need to compute both x+y and x-y),
+# not to mention we haven't implemented it and would rather not.
+#
+# The paper gives an alternative formula:
+#   t1 = s*z*u ^ ((1-s) + (1-z))*(v − u)
+#   2*t2 = s*z*(v − u) ^ s*(1-z)*v ^ (1-s)*z*u
+# This alternative avoids the use of signed addition,
+# but it is not more readable.
+#
+# Let's try a readable version, directly derived from si_gcd() above,
+# and using constant-time primitives we have in tf-psa-crypto.
+def sict_gcd2(p, a):
+    assert p >= a >= 0
+    assert p & 1 != 0 or a & 1 != 0
+
+    u, v = a, p
+    for _ in range(2 * p.bit_length()):
+        d = v - u
+
+        # s, z in Alg 8 - used meaningful names instead
+        u_is_odd, v_is_odd = u & 1 != 0, v & 1 != 0
+
+        # t1 from Alg 8, ie the thing that's kept unshifted
+        t1 = d
+        t1 = select(t1, u, u_is_odd and v_is_odd)
+
+        # t2 from Alg 8, it the thing that gets shifted
+        t2 = u
+        t2 = select(t2, d, u_is_odd and v_is_odd)
+        t2 = select(t2, v, u_is_odd and not v_is_odd)
+        t2 >>= 1
+
+        lt = t2 < t1  # IRL, use mbedtls_mpi_core_lt_ct
+        u, v = cond_swap(t1, t2, lt)
 
     return v
 
@@ -153,5 +235,7 @@ def test_ordered_odd(func, name):
 test(euclid_gcd, "euclid_gcd")
 test(binary_gcd, "binary_gcd")
 test_ordered_odd(si_gcd, "si_gcd")
+test_ordered_odd(sict_gcd, "sict_gcd")
+test_ordered_odd(sict_gcd2, "sict_gcd2")
 
 print(math.gcd(66528, 52920))
