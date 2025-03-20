@@ -81,6 +81,43 @@ def binary_gcd(a, b):
     return g * a
 
 
+# Algorithm 6 from [Jin23].
+# This is a step towards constant-time GCD:
+# - avoids nested loops;
+# - the loop has a constant number of iterations;
+# - the 3 branches in the loop's body are very similar to each other.
+#
+# However it only works if at least one of the inputs is odd;
+# this is something we can guarantee in pratice in cases of interest.
+# (Or we could prepend something like the first loop of binary_gcd() above.)
+#
+# [Jin23] https://www.jstage.jst.go.jp/article/transinf/E106.D/9/E106.D_2022ICP0009/_pdf
+def si_gcd(a, b):
+    assert a >= b >= 0
+    assert a & 1 != 0 or b & 1 != 0
+
+    def max_min(x, y):
+        if x > y:
+            return x, y
+        return y, x
+
+    u, v = b, a
+    for _ in range(2 * a.bit_length()):
+        print(v, u)
+        t1 = v - u
+        if u & 1 == 0:
+            u >>= 1
+            v, u = max_min(u, t1)
+        elif v & 1 != 0:
+            t1 >>= 1
+            v, u = max_min(t1, u)
+        else:
+            v >>= 1
+            v, u = max_min(v, t1)
+
+    return v
+
+
 def test_one(func, name, a, b):
     exp = math.gcd(a, b)
     got = func(a, b)
@@ -98,7 +135,23 @@ def test(func, name):
         test_one(func, name, a, b)
 
 
+def test_ordered_odd(func, name):
+    for a in range(20):
+        for b in range(a + 1):
+            if a & 1 != 0 or b & 1 != 0:
+                test_one(func, name, a, b)
+
+    for _ in range(100):
+        while True:
+            a = secrets.randbits(256)
+            b = secrets.randbits(256)
+            if a & 1 != 0 or b & 1 != 0:
+                break
+        test_one(func, name, max(a, b), min(a, b))
+
+
 test(euclid_gcd, "euclid_gcd")
 test(binary_gcd, "binary_gcd")
+test_ordered_odd(si_gcd, "si_gcd")
 
 print(math.gcd(66528, 52920))
