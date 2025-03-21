@@ -232,10 +232,11 @@ def test_ordered_odd(func, name):
         test_one(func, name, max(a, b), min(a, b))
 
 
-test(euclid_gcd, "euclid_gcd")
-test(binary_gcd, "binary_gcd")
-test_ordered_odd(si_gcd, "si_gcd")
-test_ordered_odd(sict_gcd, "sict_gcd")
-test_ordered_odd(sict_gcd2, "sict_gcd2")
+if __name__ == "__main__":
+    test(euclid_gcd, "euclid_gcd")
+    test(binary_gcd, "binary_gcd")
+    test_ordered_odd(si_gcd, "si_gcd")
+    test_ordered_odd(sict_gcd, "sict_gcd")
+    test_ordered_odd(sict_gcd2, "sict_gcd2")
 
-print(math.gcd(66528, 52920))
+    print(math.gcd(66528, 52920))

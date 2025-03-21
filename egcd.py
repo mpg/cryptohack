@@ -179,10 +179,11 @@ def test(func, name):
         test_one(func, name, a, b)
 
 
-test(euclid_intuitive, "euclid_intuitive")
-test(euclid_direct, "euclid_direct")
-test(binary, "binary")
+if __name__ == "__main__":
+    test(euclid_intuitive, "euclid_intuitive")
+    test(euclid_direct, "euclid_direct")
+    test(binary, "binary")
 
-g, u, v = euclid_intuitive(26513, 32321, show=True)
-assert g == 1
-print("Flag:", min(u, v))
+    g, u, v = euclid_intuitive(26513, 32321, show=True)
+    assert g == 1
+    print("Flag:", min(u, v))
