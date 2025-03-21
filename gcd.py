@@ -179,16 +179,16 @@ def sict_gcd2(p, a):
 
     u, v = a, p
     for _ in range(2 * p.bit_length()):
-        d = v - u
-
-        # s, z in Alg 8 - used meaningful names instead
+        # s, z in Alg 8 - use meaningful names instead
         u_is_odd, v_is_odd = u & 1 != 0, v & 1 != 0
+
+        d = v - u
 
         # t1 from Alg 8, ie the thing that's kept unshifted
         t1 = d
         t1 = select(t1, u, u_is_odd and v_is_odd)
 
-        # t2 from Alg 8, it the thing that gets shifted
+        # t2 from Alg 8, ie the thing that gets shifted
         t2 = u
         t2 = select(t2, d, u_is_odd and v_is_odd)
         t2 = select(t2, v, u_is_odd and not v_is_odd)
