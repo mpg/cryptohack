@@ -35,6 +35,21 @@ def div2l_mod(x, n):
     return x
 
 
+# Compute x - y mod n, result in [0, n)
+def sub_mod(x, y, n):
+    if x < y:
+        return x + n - y
+    return x - y
+
+
+# Compute x + y mod n, result in [0, n)
+def add_mod(x, y, n):
+    z = x + y
+    if z > n:
+        return z - n
+    return z
+
+
 # This is Algorithm 8 from [Jin23], except:
 # - more readable
 # - not using signed addition,
@@ -59,10 +74,10 @@ def sict_mi(a, p):
         t2 = select(t2, v, u_is_odd and not v_is_odd)
         t2 >>= 1
 
-        d = q - r  # (t2 from Alg 7)
+        d = sub_mod(q, r, p)  # (t2 from Alg 7)
         t3 = d
         t3 = select(t3, r, u_is_odd and v_is_odd)
-        t3 <<= 1
+        t3 = add_mod(t3, t3, p)
         t4 = r
         t4 = select(t4, d, u_is_odd and v_is_odd)
         t4 = select(t4, q, u_is_odd and not v_is_odd)
@@ -77,7 +92,7 @@ def sict_mi(a, p):
 
 def test_one(func, name, a, n):
     a1 = func(a, n)
-    assert 0 <= a < n, f"{a1} not in range [0, {n}] ({name})"
+    assert 0 <= a1 < n, f"{a1} not in range [0, {n}) ({name})"
     one = (a1 * a) % n
     assert one == 1, f"{a1} * {a} = {one} != 1 mod {n} ({name})"
 

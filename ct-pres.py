@@ -226,18 +226,118 @@ def sict_gcd_readable(p, a):
     return v
 
 
-def test_one(func, name, a, b):
+# Compute x * 2^-1 mod n, ie x / 2 mod n (assuming n is odd)
+def div2_mod(x, n):
+    if x & 1 == 0:
+        return x >> 1
+    return (x + n) >> 1
+
+
+# Compute x - y mod n, result in [0, n)
+def sub_mod(x, y, n):
+    if x < y:
+        return x + n - y
+    return x - y
+
+
+# "Classical" binary modinv
+def bin_modinv(a, n):
+    assert n >= a > 0
+    assert n & 1 != 0
+
+    # Invariants:
+    # gcd(u, v) = gcd(a, n)
+    # v = a * q mod n
+    # u = a * r mod n
+    u, v, q, r = a, n, 0, 1
+    while u != 0 and v != 0:
+        while u & 1 == 0:
+            u >>= 1
+            r = div2_mod(r, n)
+        while v & 1 == 0:
+            v >>= 1
+            q = div2_mod(q, n)
+
+        if u > v:
+            u -= v
+            r = sub_mod(r, q, n)
+        else:
+            v -= u
+            q = sub_mod(q, r, n)
+
+    # At this point one relation is 0 = a * 0 mod n
+    # and the other is 1 = gcd(a, n) = a * a^-1 mod n (assuming a and n coprime)
+    if u == 0:
+        assert v == 1
+        return q
+    else:
+        assert u == 1
+        return r
+
+
+# Compute x * 2^-l mod n when l = 2 * bitlen(n) (assuming n is odd)
+# In tf-psa-crypto this can be done with two Montgomery multiplications by 1.
+def div2l_mod(x, n):
+    for _ in range(2 * n.bit_length()):
+        x = div2_mod(x, n)
+    return x
+
+
+# This is Algorithm 8 from [Jin23], except:
+# - more readable
+# - not using signed addition,
+# - using constant-time primitives like those we have in tf-psa-crypto.
+#
+# See comments on sict_gcd2() in gcd.py.
+# See also Alg 7, but t1, ..., t4 are those from Alg 8.
+def sict_mi(a, p):
+    assert p >= a >= 0
+    assert p & 1 != 0
+
+    u, v, q, r = a, p, 0, 1
+    for _ in range(2 * p.bit_length()):
+        # s, z in Alg 8 - use meaningful names instead
+        u_is_odd, v_is_odd = u & 1 != 0, v & 1 != 0
+
+        d = v - u  # (t1 from Alg 7)
+        t1 = d
+        t1 = select(t1, u, u_is_odd and v_is_odd)
+        t2 = u
+        t2 = select(t2, d, u_is_odd and v_is_odd)
+        t2 = select(t2, v, u_is_odd and not v_is_odd)
+        t2 >>= 1
+
+        # We should divide t4 by 2 but we're deferring that,
+        # so to compensate we multiply t3 by 2
+        # to scale them both the same way.
+        d = sub_mod(q, r, p)  # (t2 from Alg 7)
+        t3 = d
+        t3 = select(t3, r, u_is_odd and v_is_odd)
+        t3 = t3 * 2 % p
+        t4 = r
+        t4 = select(t4, d, u_is_odd and v_is_odd)
+        t4 = select(t4, q, u_is_odd and not v_is_odd)
+
+        lt = t2 < t1  # IRL, use mbedtls_mpi_core_lt_ct
+        u, v = cond_swap(t1, t2, lt)
+        r, q = cond_swap(t3, t4, lt)
+
+    assert v == 1  # We also get the GCD for free
+    return div2l_mod(q, p)  # Do the deferred divisions (more efficiently)
+
+
+def test_gcd_one(func, name, a, b):
     exp = math.gcd(a, b)
     got = func(a, b)
     assert got == exp, f"{name}({a}, {b}) = {got} != {exp}"
 
 
-def test(func):
+def test_gcd(func):
     name = func.__name__
     for a in range(20):
         for b in range(a + 1):
             if a & 1 != 0 or b & 1 != 0:
-                test_one(func, name, a, b)
+                test_gcd_one(func, name, a, b)
 
     for _ in range(100):
         while True:
@@ -245,21 +345,47 @@ def test(func):
             b = secrets.randbits(256)
             if a & 1 != 0 or b & 1 != 0:
                 break
-        test_one(func, name, max(a, b), min(a, b))
+        test_gcd_one(func, name, max(a, b), min(a, b))
 
     for _ in range(10):
         a = secrets.randbits(1024)
         for b in range(10):
             aa = a | (1 - (b & 1))
-            test_one(func, name, aa, b)
+            test_gcd_one(func, name, aa, b)
+
+
+def test_mi_one(func, name, a, n):
+    a1 = func(a, n)
+    assert 0 <= a1 < n, f"{name}({a}, {n}) = {a1} not in range"
+    assert a1 * a % n == 1, f"{name}({a}, {n}) = {a1} incorrect ({a1 * a % n})"
+
+
+def test_mi(func):
+    name = func.__name__
+    for n in range(1, 22, 2):
+        for a in range(1, n):
+            if math.gcd(a, n) != 1:
+                continue
+            test_mi_one(func, name, a, n)
+
+    for _ in range(100):
+        while True:
+            n = secrets.randbits(1024) | 1
+            a = secrets.randbelow(n)
+            if math.gcd(a, n) == 1:
+                break
+        test_mi_one(func, name, a, n)
 
 
 if __name__ == "__main__":
-    test(binary_gcd)
-    test(bin_gcd_fix3)
-    test(bin_gcd_fix13)
-    test(bin_gcd_fix12)
-    test(bin_gcd_fix123)
-    test(si_gcd)
-    test(sict_gcd)
-    test(sict_gcd_readable)
+    test_gcd(binary_gcd)
+    test_gcd(bin_gcd_fix3)
+    test_gcd(bin_gcd_fix13)
+    test_gcd(bin_gcd_fix12)
+    test_gcd(bin_gcd_fix123)
+    test_gcd(si_gcd)
+    test_gcd(sict_gcd)
+    test_gcd(sict_gcd_readable)
+
+    test_mi(bin_modinv)
+    test_mi(sict_mi)
