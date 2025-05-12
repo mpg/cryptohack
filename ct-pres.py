@@ -128,7 +128,7 @@ def bin_gcd_fix123(a, b):
         subtract = not shift_a and not shift_b
         a, b = cond_swap(a, b, b > a and subtract)
         a = select(a, a - b, subtract)
-        # Each iteration does 2 shifts and 2 subtracts (1 hidden in ">")
+        # Each iteration does 2 shifts, 1 subtract and 1 compare
 
     return select(a, b, a == 0)
 
@@ -164,7 +164,7 @@ def si_gcd(a, b):
         else:
             v >>= 1
             v, u = max_min(v, d)
-        # Each iteration does 1 shift and 2 subtracts (1 hidden in ">")
+        # Each iteration does 1 shift, 1 subtract, 1 compare
 
     return v
 
@@ -186,7 +186,7 @@ def sict_gcd(p, a):
     return v
 
 
-# The computation of t1 and t2 in the above has drawabacks:
+# The computation of t1 and t2 in the above has drawbacks:
 # 1. Not exactly readable.
 # 2. Involves signed numbers (eg in t1 if sz is 0 we add -u).
 # Constant time addition is costly (need to compute both x+y and x-y),
@@ -228,16 +228,14 @@ def sict_gcd_readable(p, a):
 
 # Compute x * 2^-1 mod n, ie x / 2 mod n (assuming n is odd)
 def div2_mod(x, n):
-    if x & 1 == 0:
-        return x >> 1
-    return (x + n) >> 1
+    even_x = select(x, x + n, x & 1 != 0)
+    return even_x >> 1
 
 
 # Compute x - y mod n, result in [0, n)
 def sub_mod(x, y, n):
-    if x < y:
-        return x + n - y
-    return x - y
+    larger_x = select(x, x + n, x < y)
+    return larger_x - y
 
 
 # "Classical" binary modinv
@@ -266,7 +264,7 @@ def bin_modinv(a, n):
             q = sub_mod(q, r, n)
 
     # At this point one relation is 0 = a * 0 mod n
-    # and the other is 1 = gcd(a, n) = a * a^-1 mod n (assuming a and n coprime)
+    # and the other is 1 = gcd(a, n) = a * a^-1 mod n (if a and n coprime)
     if u == 0:
         assert v == 1
         return q
@@ -275,8 +273,52 @@ def bin_modinv(a, n):
         return r
 
 
+# This is Algorithm 8 from [Jin23], except:
+# - more readable
+# - not using signed addition,
+# - using constant-time primitives like those we have in tf-psa-crypto,
+# - skipping an optimisation for now (see below).
+#
+# See also Alg 7, but t1, ..., t4 are those from Alg 8.
+def sict_mi2(a, p):
+    assert p >= a >= 0
+    assert p & 1 != 0
+
+    u, v, q, r = a, p, 0, 1
+    for _ in range(2 * p.bit_length()):
+        # s, z in Alg 8 - use meaningful names instead
+        u_is_odd, v_is_odd = u & 1 != 0, v & 1 != 0
+
+        d = v - u  # (t1 from Alg 7)
+        t1 = d
+        t1 = select(t1, u, u_is_odd and v_is_odd)
+        t2 = u
+        t2 = select(t2, d, u_is_odd and v_is_odd)
+        t2 = select(t2, v, u_is_odd and not v_is_odd)
+        t2 >>= 1
+
+        # We should divide t4 by 2 but we're deferring that,
+        # so to compensate we multiply t3 by 2
+        # to scale them both the same way.
+        d = sub_mod(q, r, p)  # (t2 from Alg 7)
+        t3 = d
+        t3 = select(t3, r, u_is_odd and v_is_odd)
+        t4 = r
+        t4 = select(t4, d, u_is_odd and v_is_odd)
+        t4 = select(t4, q, u_is_odd and not v_is_odd)
+        t4 = div2_mod(t4, p)
+
+        lt = t2 < t1  # IRL, use mbedtls_mpi_core_lt_ct
+        u, v = cond_swap(t1, t2, lt)
+        r, q = cond_swap(t3, t4, lt)
+
+    assert v == 1  # We also get the GCD for free
+    return q
+
+
 # Compute x * 2^-l mod n when l = 2 * bitlen(n) (assuming n is odd)
-# In tf-psa-crypto this can be done with two Montgomery multiplications by 1.
+# In tf-psa-crypto this can be done with two Montgomery multiplications by 1,
+# which is faster that the loop below.
 def div2l_mod(x, n):
     for _ in range(2 * n.bit_length()):
         x = div2_mod(x, n)
@@ -288,7 +330,6 @@ def div2l_mod(x, n):
 # - not using signed addition,
 # - using constant-time primitives like those we have in tf-psa-crypto.
 #
-# See comments on sict_gcd2() in gcd.py.
 # See also Alg 7, but t1, ..., t4 are those from Alg 8.
 def sict_mi(a, p):
     assert p >= a >= 0
@@ -388,4 +429,5 @@ if __name__ == "__main__":
     test_gcd(sict_gcd_readable)
 
     test_mi(bin_modinv)
+    test_mi(sict_mi2)
     test_mi(sict_mi)
