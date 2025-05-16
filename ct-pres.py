@@ -289,6 +289,7 @@ def sict_mi2(a, p):
         # s, z in Alg 8 - use meaningful names instead
         u_is_odd, v_is_odd = u & 1 != 0, v & 1 != 0
 
+        # This is the same as sict_gcd_readable()
         d = v - u  # (t1 from Alg 7)
         t1 = d
         t1 = select(t1, u, u_is_odd and v_is_odd)
@@ -297,9 +298,7 @@ def sict_mi2(a, p):
         t2 = select(t2, v, u_is_odd and not v_is_odd)
         t2 >>= 1
 
-        # We should divide t4 by 2 but we're deferring that,
-        # so to compensate we multiply t3 by 2
-        # to scale them both the same way.
+        # Do the same with q, r, t3, t4 (but decisions still based on u, v)
         d = sub_mod(q, r, p)  # (t2 from Alg 7)
         t3 = d
         t3 = select(t3, r, u_is_odd and v_is_odd)
