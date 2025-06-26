@@ -366,6 +366,29 @@ def sict_mi(a, p):
     return div2l_mod(q, p)  # Do the deferred divisions (more efficiently)
 
 
+# Compute modular inverse modulo a number that's not odd but is 2 mod 4
+# (ie, it's a multiple of 2 but not 4, ie the bottom two bits are 10).
+def sict_mi_2mod4(a, n):
+    assert 0 < a < n
+    assert n % 4 == 2
+
+    # Consider i = a^-1 mod n, ie such that a * i = 1 mod n.
+    # That is, a*i = 1 + n*k = 1 + (n/2)*2k
+    # Hence, a*i = 1 mod (n/2), ie i = a^-1 mod (n/2) as well.
+    #
+    # So, we can first compute i2 = a^-1 mod (n/2), and we know that
+    # i = i2 mod (n/2), so lifting up mod n we have either
+    # i = i2 mod n or i = i2 + (n/2) mod n.
+
+    n2 = n >> 1
+    i2 = sict_mi(a % n2, n2)
+
+    # Now i, the inverse of a mod n, is either i2 or i2 + n2
+    assert (i2 * a) % n == 1 or ((i2 + n2) * a) % n == 1
+    maybe_one = (i2 * a) % n
+    return select(i2, i2 + n2, maybe_one != 1)
+
+
 def test_gcd_one(func, name, a, b):
     exp = math.gcd(a, b)
     got = func(a, b)
@@ -417,6 +440,26 @@ def test_mi(func):
         test_mi_one(func, name, a, n)
 
 
+def test_mi_2mod4():
+    for n in range(1, 20):
+        if n % 4 != 2:
+            continue
+        for a in range(1, n):
+            if math.gcd(a, n) != 1:
+                continue
+            ai = sict_mi_2mod4(a, n)
+            assert (ai * a) % n == 1, f"{ai} * {a} mod {n} != 1"
+
+    for _ in range(10):
+        while True:
+            n = (secrets.randbits(1022) << 2) | 2
+            a = secrets.randbelow(n)
+            if math.gcd(a, n) == 1:
+                break
+        ai = sict_mi_2mod4(a, n)
+        assert (ai * a) % n == 1, f"{ai} * {a} mod {n} != 1"
+
+
 if __name__ == "__main__":
     test_gcd(binary_gcd)
     test_gcd(bin_gcd_fix3)
@@ -430,3 +473,5 @@ if __name__ == "__main__":
     test_mi(bin_modinv)
     test_mi(sict_mi2)
     test_mi(sict_mi)
+
+    test_mi_2mod4()
