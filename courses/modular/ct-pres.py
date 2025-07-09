@@ -379,14 +379,30 @@ def sict_mi_2mod4(a, n):
     # So, we can first compute i2 = a^-1 mod (n/2), and we know that
     # i = i2 mod (n/2), so lifting up mod n we have either
     # i = i2 mod n or i = i2 + (n/2) mod n.
+    # Speficically, we can pick the one that's odd (since n is even,
+    # only odd numbers are invertible mod n).
 
     n2 = n >> 1
     i2 = sict_mi(a % n2, n2)
 
-    # Now i, the inverse of a mod n, is either i2 or i2 + n2
-    assert (i2 * a) % n == 1 or ((i2 + n2) * a) % n == 1
-    maybe_one = (i2 * a) % n
-    return select(i2, i2 + n2, maybe_one != 1)
+    return select(i2, i2 + n2, i2 & 1 == 0)
+
+
+# Compute a^-1 mod n where a is odd and n might be even, including
+# a muliple of 2^k for arbitrary k. Requires n > 1.
+#
+# Since gcd(a, n) can only be 1 if at least one of a, n is odd,
+# so whenever a^-1 mod n exists, it can be computed with one of
+# sict_mi() (if n is odd, possibly reducing a mod n first to satisfy the
+# ordering condition) or this function (otherwise).
+def sict_mi_a_odd(a, n):
+    # Compute n1 = n^-1 mod a
+    n1 = sict_mi(n % a, a)
+    # Now we know n * n1 = 1 + k * a for some k, which we can compute
+    k = (n * n1 - 1) // a
+    # Now we have a Bezout relation for (a, n): n * n1 - k * a = 1,
+    # which is to say the inverse of a mod n is -k
+    return (n - k) % n
 
 
 def test_gcd_one(func, name, a, b):
@@ -448,6 +464,7 @@ def test_mi_2mod4():
             if math.gcd(a, n) != 1:
                 continue
             ai = sict_mi_2mod4(a, n)
+            assert 0 <= ai < n
             assert (ai * a) % n == 1, f"{ai} * {a} mod {n} != 1"
 
     for _ in range(10):
@@ -457,6 +474,39 @@ def test_mi_2mod4():
             if math.gcd(a, n) == 1:
                 break
         ai = sict_mi_2mod4(a, n)
+        assert 0 <= ai < n
+        assert (ai * a) % n == 1, f"{ai} * {a} mod {n} != 1"
+
+
+def test_mi_a_odd():
+    for n in range(2, 20):
+        for a in range(1, 20):
+            if a % 2 == 0:
+                continue
+            if math.gcd(a, n) != 1:
+                continue
+            ai = sict_mi_a_odd(a, n)
+            assert 0 <= ai < n
+            assert (ai * a) % n == 1, f"{ai} * {a} mod {n} != 1"
+
+    for _ in range(10):
+        while True:
+            n = secrets.randbits(256)
+            a = (secrets.randbits(256) << 1) | 1
+            if math.gcd(a, n) == 1:
+                break
+        ai = sict_mi_a_odd(a, n)
+        assert 0 <= ai < n
+        assert (ai * a) % n == 1, f"{ai} * {a} mod {n} != 1"
+
+    for _ in range(10):
+        while True:
+            n = secrets.randbits(1024)
+            a = (secrets.randbits(1023) << 1) | 1
+            if math.gcd(a, n) == 1:
+                break
+        ai = sict_mi_a_odd(a, n)
+        assert 0 <= ai < n
         assert (ai * a) % n == 1, f"{ai} * {a} mod {n} != 1"
 
 
@@ -475,3 +525,4 @@ if __name__ == "__main__":
     test_mi(sict_mi)
 
     test_mi_2mod4()
+    test_mi_a_odd()
