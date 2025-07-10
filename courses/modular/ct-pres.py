@@ -389,20 +389,26 @@ def sict_mi_2mod4(a, n):
 
 
 # Compute a^-1 mod n where a is odd and n might be even, including
-# a muliple of 2^k for arbitrary k. Requires n > 1.
+# a muliple of 2^k for arbitrary k. Requires a > 1 and n > 1.
 #
 # Since gcd(a, n) can only be 1 if at least one of a, n is odd,
 # so whenever a^-1 mod n exists, it can be computed with one of
 # sict_mi() (if n is odd, possibly reducing a mod n first to satisfy the
 # ordering condition) or this function (otherwise).
 def sict_mi_a_odd(a, n):
+    assert a > 1
+    assert n > 1
+
     # Compute n1 = n^-1 mod a
     n1 = sict_mi(n % a, a)
     # Now we know n * n1 = 1 + k * a for some k, which we can compute
     k = (n * n1 - 1) // a
     # Now we have a Bezout relation for (a, n): n * n1 - k * a = 1,
-    # which is to say the inverse of a mod n is -k
-    return (n - k) % n
+    # which is to say the inverse of a mod n is -k.
+    #
+    # We know k < n by this point because n1 < a;
+    # also k is clearly non-negative and can't be zero.
+    return n - k
 
 
 def test_gcd_one(func, name, a, b):
@@ -480,13 +486,13 @@ def test_mi_2mod4():
 
 def test_mi_a_odd():
     for n in range(2, 20):
-        for a in range(1, 20):
+        for a in range(2, 20):
             if a % 2 == 0:
                 continue
             if math.gcd(a, n) != 1:
                 continue
             ai = sict_mi_a_odd(a, n)
-            assert 0 <= ai < n
+            assert 0 < ai < n
             assert (ai * a) % n == 1, f"{ai} * {a} mod {n} != 1"
 
     for _ in range(10):
@@ -496,7 +502,7 @@ def test_mi_a_odd():
             if math.gcd(a, n) == 1:
                 break
         ai = sict_mi_a_odd(a, n)
-        assert 0 <= ai < n
+        assert 0 < ai < n
         assert (ai * a) % n == 1, f"{ai} * {a} mod {n} != 1"
 
     for _ in range(10):
@@ -506,7 +512,7 @@ def test_mi_a_odd():
             if math.gcd(a, n) == 1:
                 break
         ai = sict_mi_a_odd(a, n)
-        assert 0 <= ai < n
+        assert 0 < ai < n
         assert (ai * a) % n == 1, f"{ai} * {a} mod {n} != 1"
 
 
