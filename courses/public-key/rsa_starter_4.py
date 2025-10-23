@@ -9,9 +9,11 @@ n = p * q
 
 phi_n = (p - 1) * (q - 1)
 d = modinv(e, phi_n)
-print(d)
+if __name__ == "__main__":
+    print(d)
 
 lambda_n = math.lcm(p - 1, q - 1)
 d_min = modinv(e, lambda_n)
-print(d_min)
+if __name__ == "__main__":
+    print(d_min)
 
