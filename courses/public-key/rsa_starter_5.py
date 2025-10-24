@@ -23,8 +23,8 @@ qp = modinv(q, p)
 
 # We do this for each decryption
 mp = pow(c % p, dp, p)
-mq = pow(c % q, dq, p)
-m = (mq + q * b_inv_mod_a * (mp - mq)) % n
+mq = pow(c % q, dq, q)
+m = (mq + q * qp * (mp - mq)) % n
 # Clearly m % q = mq, since m = mq + q * [...]
 # Also m mod p = mq + (1 mod p) * (mp - mq) = mq + mp - mq = mp mod p
 print(m)
