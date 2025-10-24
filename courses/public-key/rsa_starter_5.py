@@ -1,9 +1,13 @@
-from rsa_starter_4 import p, q, n, e, d
-from utils import modinv
+# data from rsa_starter_4
+p = 857504083339712752489993810777
+q = 1029224947942998075080348647219
+e = 65537
 
-assert n == 882564595536224140639625987659416029426239230804614613279163
-assert e == 65537
+# computations from rsa_starter_4
+n = p * q
+d = pow(e, -1, (p - 1) * (q - 1))
 
+# new data
 c = 77578995801157823671636298847186723593814843845525223303932
 
 print(pow(c, d, n))
@@ -17,9 +21,9 @@ print(pow(c, d, n))
 
 # We do this once at key generation time then store it:
 # See https://datatracker.ietf.org/doc/html/rfc8017#appendix-A.1.2
-dp = modinv(e, p - 1)
-dq = modinv(e, q - 1)
-qp = modinv(q, p)
+dp = pow(e, -1, p - 1)
+dq = pow(e, -1, q - 1)
+qp = pow(q, -1, p)
 
 # We do this for each decryption
 mp = pow(c % p, dp, p)
